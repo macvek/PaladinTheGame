@@ -1,0 +1,8 @@
+application*.out
+paladin.save
+Release/
+Debug/
+.vs/
+*.user
+*.filters
+.vscode
