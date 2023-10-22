@@ -1,4 +1,4 @@
-# Palandin the game
+# Paladin the game
 
 It is a text/console game. All source code is placed in game.c file. Terminal should display at least 103 characters in a single line.
 
