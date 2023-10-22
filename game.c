@@ -26,6 +26,24 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 
+char* input = NULL;
+size_t inputSize = 80;
+
+#ifdef BUILDONWINDOWS
+void ToOutput(char* format, ...);
+
+char* FromInput();
+
+#else
+#define ToOutput printf
+
+char* FromInput() {
+    return fgets(input, inputSize, stdin);
+}
+
+
+#endif
+
 // SECTION:DEFINES
 
 #define COLOR_RESET     0
@@ -168,28 +186,28 @@ SOFTWARE.
 #define DrawMapSize (DrawMapHeight * DrawMapWidth)
 #define DRAWMAPOFFSET(x, y) ( y * DrawMapWidth + x )
 
-void printFightMsg(char* msg) {
-    printf(CC(C_FIGHT_MSG)"!! %s !!\n"CC(C_RST), msg);
+void ToOutputightMsg(char* msg) {
+    ToOutput(CC(C_FIGHT_MSG)"!! %s !!\n"CC(C_RST), msg);
 }
 
 void printMsg(char* msg) {
-    printf(CC(C_MSG)"~~ %s ~~\n"CC(C_RST), msg);
+    ToOutput(CC(C_MSG)"~~ %s ~~\n"CC(C_RST), msg);
 }
 
 void printMsgHigh(char* msg, char* highArg) {
-    printf(CC(C_MSG)"~~ %s "CC(C_MSGHIGH)"%s"CC(C_MSG)" ~~\n"CC(C_RST), msg, highArg);
+    ToOutput(CC(C_MSG)"~~ %s "CC(C_MSGHIGH)"%s"CC(C_MSG)" ~~\n"CC(C_RST), msg, highArg);
 }
 
 void printMsgDisabled(char* msg) {
-    printf(CC(C_DISABLED)"%s\n"CC(C_RST), msg);
+    ToOutput(CC(C_DISABLED)"%s\n"CC(C_RST), msg);
 }
 
 void printSeparator() {
-    printf(CC(C_BBLACK)"-~~~~~-\n"CC(C_RST));
+    ToOutput(CC(C_BBLACK)"-~~~~~-\n"CC(C_RST));
 }
 
 void printLine() {
-    printf("\n");
+    ToOutput("\n");
 }
 
 // SECTION:CONSTS
@@ -509,8 +527,6 @@ struct CommandHandler {
 // SECTION:GLOBALS
 struct ListItem* BOTInput = NULL;
 int parseInputRetCode = 1;
-char* input = NULL;
-size_t inputSize = 80;
 int health = 100;
 int money = 0;
 struct ListItem* inventory = NULL;
@@ -635,12 +651,12 @@ int argToNumOrFail(char* cmd, int id, char* argNotFound) {
     if (argIdx) {
         int num = readInt(argIdx);
         if (num < 0) {
-            printf("expected non negative value\n");
+            ToOutput("expected non negative value\n");
         }
         return num;
     }
     else {
-        printf("%s\n", argNotFound);
+        ToOutput("%s\n", argNotFound);
         return -1;
     }
 }
@@ -656,20 +672,15 @@ int startsWithAndSpace(char* prefix) {
 void changeColor(int color) {
     //CSI: ESC ]
     //CSI COLORCODE m
-    printf("\x1B[%im", color);
-}
-
-void cursorMoveTo(int x, int y) {
-    //CSI x ; y H
-    printf("\x1B[%i;%iH", x, y);
+    ToOutput("\x1B[%im", color);
 }
 
 void cursorMoveOffset(int x, int y) {
     if (x != 0) {
-        printf("\x1B[%i%c", x > 0 ? x : -x, x > 0 ? 'C' : 'D');
+        ToOutput("\x1B[%i%c", x > 0 ? x : -x, x > 0 ? 'C' : 'D');
     }
     if (y != 0) {
-        printf("\x1B[%i%c", y > 0 ? y : -y, y > 0 ? 'B' : 'A');
+        ToOutput("\x1B[%i%c", y > 0 ? y : -y, y > 0 ? 'B' : 'A');
     }
 }
 
@@ -689,7 +700,7 @@ int myStrlen(char* str) {
                 continue;
             }
             else {
-                printf("--> IT SHOULD NEVER HIT 0 on string: %s\n <--", str);
+                ToOutput("--> IT SHOULD NEVER HIT 0 on string: %s\n <--", str);
                 return 0;
             }
         }
@@ -828,14 +839,14 @@ void removeAllFromList(struct ListItem** list) {
 
 void removeFromList(struct ListItem** list, void* payload) {
     if (*list == NULL) {
-        printf("!! ERR: trying to remove from empty list !!\n");
+        ToOutput("!! ERR: trying to remove from empty list !!\n");
         exit(1);
         return;
     }
 
     struct ListItem* toRemove = findPayload(*list, payload);
     if (toRemove == NULL) {
-        printf("!! ERR: trying to remove content from list which is not found !!\n");
+        ToOutput("!! ERR: trying to remove content from list which is not found !!\n");
         return;
     }
 
@@ -974,20 +985,20 @@ void fillInput() {
         removeFromList(&BOTInput, cmd);
         int len = strlen(cmd);
         if (len + 1 > inputSize) {
-            printf("ERROR!!, found too long cmd in bot payload: %s, aborting", cmd);
+            ToOutput("ERROR!!, found too long cmd in bot payload: %s, aborting", cmd);
             exit(1);
         }
 
-        printf("BOT: %s\n", cmd);
+        ToOutput("BOT: %s\n", cmd);
         myStrcpy(input, cmd);
         input[inputSize - 1] = 0;
         return;
     }
 
     for (;;) {
-        char* ret = fgets(input, inputSize, stdin);
+        char* ret = FromInput();
         if (!ret) {
-            printf("\n!!!\nFound empty line; aborting with error\n");
+            ToOutput("\n!!!\nFound empty line; aborting with error\n");
             exit(1);
         }
         // mark end of line as 0
@@ -1038,7 +1049,7 @@ int reverseDirection(int dir) {
     if (WEST == dir) return EAST;
     if (TRAVEL == dir) return TRAVEL;
 
-    printf("PANIC!!: got location %i to decode, aborting\n", dir);
+    ToOutput("PANIC!!: got location %i to decode, aborting\n", dir);
     exit(1);
 }
 
@@ -1062,7 +1073,7 @@ void initDrawMap() {
 
 void showMap() {
     cursorMoveOffset(100 - DrawMapWidth, -DrawMapHeight - 1);
-    printf(CC(C_MAP_BRDR)"/--------------------------------\\");
+    ToOutput(CC(C_MAP_BRDR)"/--------------------------------\\");
     int moveBack = -1 - DrawMapWidth;
     cursorMoveOffset(moveBack, 1);
 
@@ -1075,19 +1086,19 @@ void showMap() {
         if (i == lineWithCursor) {
             char bg = DrawMap[DrawMapCursor];
             DrawMap[DrawMapCursor] = 0; // terminate at cursor position to change color
-            printf(CC(C_MAP_BRDR)"|"CC(C_MAP_ROOM)"%s", linePtr);
-            printf(CC(C_MAP_CURSOR)"@"CC(C_MAP_ROOM));
+            ToOutput(CC(C_MAP_BRDR)"|"CC(C_MAP_ROOM)"%s", linePtr);
+            ToOutput(CC(C_MAP_CURSOR)"@"CC(C_MAP_ROOM));
 
             DrawMap[DrawMapCursor] = bg;
             linePtr = &DrawMap[DrawMapCursor + 1];
-            printf("%s"CC(C_MAP_BRDR)"|", linePtr);
+            ToOutput("%s"CC(C_MAP_BRDR)"|", linePtr);
         }
         else {
-            printf(CC(C_MAP_BRDR)"|"CC(C_MAP_ROOM)"%s"CC(C_MAP_BRDR)"|", linePtr);
+            ToOutput(CC(C_MAP_BRDR)"|"CC(C_MAP_ROOM)"%s"CC(C_MAP_BRDR)"|", linePtr);
         }
         cursorMoveOffset(moveBack, 1);
     }
-    printf(CC(C_MAP_BRDR)"\\--------------------------------/\n"CC(C_RST));
+    ToOutput(CC(C_MAP_BRDR)"\\--------------------------------/\n"CC(C_RST));
 }
 
 void walkMap(char* sourceMap[], int width, int height) {
@@ -1129,7 +1140,7 @@ void initMap(char* sourceMap[]) {
         int w = strlen(sourceMap[height]);
 
         if (w != width) {
-            printf("FATAL ERROR; mapToInit is not aligned with width:%i on line: %i\n", width, height);
+            ToOutput("FATAL ERROR; mapToInit is not aligned with width:%i on line: %i\n", width, height);
             exit(1);
             return;
         }
@@ -1158,7 +1169,7 @@ void joinLocations(struct Location* a, struct Location* b, int cursorOffset) {
 
 void unjoinLocations(struct Location* a, int from, int to) {
     if (!a->moves[from]) {
-        printf("FATAL, cannot break such join from %s\n", a->name);
+        ToOutput("FATAL, cannot break such join from %s\n", a->name);
         exit(1);
     }
 
@@ -1207,7 +1218,7 @@ struct InventoryItem* findInventoryIndexedItem(struct ListItem* inventory, int n
 
 void removeItemFromInventory(int idx) {
     if (inventory == NULL) {
-        printf("Cannot remove element from an empty inventory\n");
+        ToOutput("Cannot remove element from an empty inventory\n");
         return;
     }
     struct ListItem* item = findNthNextItem(inventory, idx, 1);
@@ -1292,19 +1303,19 @@ void completeQuest(struct JournalEntry* entry) {
 // SECTION:ENGINE prints
 void printMoves() {
     int options = moveTest();
-    printf(CC(C_HINT)"( ");
-    if (options & MOVE_NORTH) printf("n ");
-    if (options & MOVE_NORTH_CLOSED) printf("(n) ");
-    if (options & MOVE_EAST) printf("e ");
-    if (options & MOVE_EAST_CLOSED) printf("(e) ");
-    if (options & MOVE_SOUTH) printf("s ");
-    if (options & MOVE_SOUTH_CLOSED) printf("(s) ");
-    if (options & MOVE_WEST) printf("w ");
-    if (options & MOVE_WEST_CLOSED) printf("(w) ");
-    if (options & MOVE_TRAVEL) printf("t ");
-    if (options & MOVE_TRAVEL_CLOSED) printf("(t) ");
+    ToOutput(CC(C_HINT)"( ");
+    if (options & MOVE_NORTH) ToOutput("n ");
+    if (options & MOVE_NORTH_CLOSED) ToOutput("(n) ");
+    if (options & MOVE_EAST) ToOutput("e ");
+    if (options & MOVE_EAST_CLOSED) ToOutput("(e) ");
+    if (options & MOVE_SOUTH) ToOutput("s ");
+    if (options & MOVE_SOUTH_CLOSED) ToOutput("(s) ");
+    if (options & MOVE_WEST) ToOutput("w ");
+    if (options & MOVE_WEST_CLOSED) ToOutput("(w) ");
+    if (options & MOVE_TRAVEL) ToOutput("t ");
+    if (options & MOVE_TRAVEL_CLOSED) ToOutput("(t) ");
 
-    printf(")");
+    ToOutput(")");
     changeColor(C_RST);
 }
 
@@ -1324,15 +1335,15 @@ void printHealth() {
     else {
         changeColor(C_HP_DEAD);
     }
-    printf("HP:%i "CC(C_RST), health);
+    ToOutput("HP:%i "CC(C_RST), health);
 }
 
-void printFightMoves() {
+void ToOutputightMoves() {
     if (enemies->next) {
-        printf(CC(C_FIGHTHINT)"( a u "CC(C_HINT)"t"CC(C_FIGHTHINT)" f )"CC(C_RST));
+        ToOutput(CC(C_FIGHTHINT)"( a u "CC(C_HINT)"t"CC(C_FIGHTHINT)" f )"CC(C_RST));
     }
     else {
-        printf(CC(C_FIGHTHINT)"( a u f )"CC(C_RST));
+        ToOutput(CC(C_FIGHTHINT)"( a u f )"CC(C_RST));
     }
 }
 
@@ -1341,34 +1352,34 @@ void talkMode(struct TalkTree* talkTree) {
     struct TalkTree* currentTree = talkTree;
 
     while (currentTree) {
-        printf(CC(C_TALK_WELCOME)"%s\n"CC(C_RST), currentTree->welcome);
+        ToOutput(CC(C_TALK_WELCOME)"%s\n"CC(C_RST), currentTree->welcome);
         int count = 0;
         for (struct TalkOption* options = currentTree->options; options->message != NULL; options++) {
             if (options->vis == NULL || options->vis(options)) {
-                printf(CC(C_TALK_OPTION)"#%i: %s\n"CC(C_RST), ++count, options->message);
+                ToOutput(CC(C_TALK_OPTION)"#%i: %s\n"CC(C_RST), ++count, options->message);
             }
         }
 
-        printf(CC(C_RST));
+        ToOutput(CC(C_RST));
 
         int num;
         for (;;) {
-            printf("> ");
+            ToOutput("> ");
             fillInput();
 
             num = readInt(input);
             if (num < 0) {
-                printf("please provide a valid number\n");
+                ToOutput("please provide a valid number\n");
                 continue;
             }
 
             if (num > count) {
-                printf("There are only %i options\n", count);
+                ToOutput("There are only %i options\n", count);
                 continue;
             }
 
             if (num == 0) {
-                printf("There is no option 0\n");
+                ToOutput("There is no option 0\n");
                 continue;
             }
 
@@ -1389,13 +1400,13 @@ void talkMode(struct TalkTree* talkTree) {
         }
 
         if (picked == NULL) {
-            printf("!! FATAL ERROR; no option picked\n");
+            ToOutput("!! FATAL ERROR; no option picked\n");
             exit(1);
             return;
         }
 
         if (picked->response != NULL) {
-            printf("%s\n", picked->response);
+            ToOutput("%s\n", picked->response);
         }
 
         struct TalkTree* nextTree;
@@ -1418,35 +1429,35 @@ void talkMode(struct TalkTree* talkTree) {
 }
 
 void shopPrompt(int flags) {
-    printf(CC(C_TALK_EXIT) "#0 Exit\n");
+    ToOutput(CC(C_TALK_EXIT) "#0 Exit\n");
 
     if (flags & CAN_BUY) {
         changeColor(C_TALK_BUY);
-        printf("#1 ");
+        ToOutput("#1 ");
     }
     else {
         changeColor(C_TALK_NOBUYSELL);
-        printf("#- ");
+        ToOutput("#- ");
     }
-    printf("Buy\n");
+    ToOutput("Buy\n");
 
     if (flags & CAN_SELL) {
         changeColor(C_TALK_SELL);
-        printf("#2 ");
+        ToOutput("#2 ");
     }
     else {
         changeColor(C_TALK_NOBUYSELL);
-        printf("#- ");
+        ToOutput("#- ");
     }
 
-    printf("Sell\n");
+    ToOutput("Sell\n");
 
     changeColor(C_RST);
-    printf("#?> ");
+    ToOutput("#?> ");
 }
 
 void showMoneyStatus() {
-    printf(CC(C_MONEY)"~~~~~~  Money: %ig  ~~~~~~\n\n"CC(C_RST), money);
+    ToOutput(CC(C_MONEY)"~~~~~~  Money: %ig  ~~~~~~\n\n"CC(C_RST), money);
 }
 
 void indexedListInventoryWithMode(struct ListItem* invList, SHOW_MODE showMode) {
@@ -1500,55 +1511,55 @@ void indexedListInventoryWithMode(struct ListItem* invList, SHOW_MODE showMode) 
 
         int len = tabSize - myStrlen(item->def->name);
         changeColor(commonColor);
-        printf("#%i ", idx);
+        ToOutput("#%i ", idx);
 
         changeColor(leadColor);
         if (item->def->type == ITYPE_ARMOR) {
-            printf("[ ARMOR] ");
+            ToOutput("[ ARMOR] ");
         }
         else if (item->def->type == ITYPE_HEALING) {
-            printf("[POTION] ");
+            ToOutput("[POTION] ");
         }
         else if (item->def->type == ITYPE_ITEM) {
-            printf("[ ITEM ] ");
+            ToOutput("[ ITEM ] ");
         }
         else if (item->def->type == ITYPE_KEY) {
-            printf("[ KEY  ] ");
+            ToOutput("[ KEY  ] ");
         }
         else if (item->def->type == ITYPE_WEAPON) {
-            printf("[WEAPON] ");
+            ToOutput("[WEAPON] ");
         }
         else if (item->def->type == ITYPE_BOMB) {
-            printf("[ BOMB ] ");
+            ToOutput("[ BOMB ] ");
         }
         else if (item->def->type == ITYPE_QUEST) {
-            printf("[ QUEST] ");
+            ToOutput("[ QUEST] ");
         }
         else {
-            printf("!! ERROR !!, unknown item type %i, for item %s, aborting\n", item->def->type, item->def->name);
+            ToOutput("!! ERROR !!, unknown item type %i, for item %s, aborting\n", item->def->type, item->def->name);
             exit(1);
         }
         changeColor(commonColor);
 
-        printf("%s", item->def->name);
+        ToOutput("%s", item->def->name);
 
         for (int i = 0; i < len; i++) {
-            printf(" ");
+            ToOutput(" ");
         }
 
         if (showMode == SHOW_PRICE) {
             if (item->def->value == 0) {
-                printf("%i "CC(C_ITEM_QUEST)"( quest item ) "CC(C_RST)"\n", item->count);
+                ToOutput("%i "CC(C_ITEM_QUEST)"( quest item ) "CC(C_RST)"\n", item->count);
             }
             else {
-                printf("%i "CC(C_MONEY)"( %ig ) "CC(C_RST) "\n", item->count, item->def->value);
+                ToOutput("%i "CC(C_MONEY)"( %ig ) "CC(C_RST) "\n", item->count, item->def->value);
             }
         }
         else {
-            printf("%i\n", item->count);
+            ToOutput("%i\n", item->count);
         }
 
-        printf(CC(C_DISABLED)"  %s\n"CC(C_RST), item->def->description);
+        ToOutput(CC(C_DISABLED)"  %s\n"CC(C_RST), item->def->description);
     }
     changeColor(C_RST);
 }
@@ -1562,9 +1573,9 @@ void shopBuyMode(struct NPC* npc) {
         printLine();
         showMoneyStatus();
         printMsg(youCanBuy);
-        printf(CC(C_TALK_EXIT)"#0 - back\n"CC(C_RST));
+        ToOutput(CC(C_TALK_EXIT)"#0 - back\n"CC(C_RST));
         indexedListInventoryWithMode(npc->inventory, SHOW_PRICE);
-        printf("buy #?> ");
+        ToOutput("buy #?> ");
         fillInput();
         int num = readInt(input);
         if (num <= 0) {
@@ -1580,12 +1591,12 @@ void shopBuyMode(struct NPC* npc) {
             printMsg("This is a quest item, you cannot buy it. There must be some other way to obtain it.");
         }
         else if (itemPayload->def->value > money) {
-            printf(CC(C_MSG)"~~ You cannot afford to buy "CC(C_MSGHIGH)"%s"CC(C_MSG)" for "CC(C_MSGHIGH)"%ig "CC(C_MSG)"~~\n"CC(C_RST),
+            ToOutput(CC(C_MSG)"~~ You cannot afford to buy "CC(C_MSGHIGH)"%s"CC(C_MSG)" for "CC(C_MSGHIGH)"%ig "CC(C_MSG)"~~\n"CC(C_RST),
                 itemPayload->def->name,
                 itemPayload->def->value);
         }
         else {
-            printf(CC(C_MSG)"~~ You bought "CC(C_MSGHIGH)"%s"CC(C_MSG)" for "CC(C_MSGHIGH)"%ig "CC(C_MSG)"~~\n"CC(C_RST),
+            ToOutput(CC(C_MSG)"~~ You bought "CC(C_MSGHIGH)"%s"CC(C_MSG)" for "CC(C_MSGHIGH)"%ig "CC(C_MSG)"~~\n"CC(C_RST),
                 itemPayload->def->name,
                 itemPayload->def->value);
             money -= itemPayload->def->value;
@@ -1599,9 +1610,9 @@ void shopSellMode(struct NPC* npc) {
         printLine();
         showMoneyStatus();
         printMsg(youCanSell);
-        printf(CC(C_TALK_EXIT)"#0 - back\n"CC(C_RST));
+        ToOutput(CC(C_TALK_EXIT)"#0 - back\n"CC(C_RST));
         indexedListInventoryWithMode(inventory, SHOW_PRICE);
-        printf("sell #?> ");
+        ToOutput("sell #?> ");
         fillInput();
         int num = readInt(input);
         if (num <= 0) {
@@ -1617,7 +1628,7 @@ void shopSellMode(struct NPC* npc) {
             printMsg("This is a quest item, you cannot sell it.");
         }
         else {
-            printf(CC(C_MSG)"~~ You sold "CC(C_MSGHIGH)"%s"CC(C_MSG)" for "CC(C_MSGHIGH)"%ig "CC(C_MSG)"~~\n"CC(C_RST),
+            ToOutput(CC(C_MSG)"~~ You sold "CC(C_MSGHIGH)"%s"CC(C_MSG)" for "CC(C_MSGHIGH)"%ig "CC(C_MSG)"~~\n"CC(C_RST),
                 itemPayload->def->name,
                 itemPayload->def->value);
 
@@ -1680,7 +1691,7 @@ void shopMode(struct NPC* this) {
                 }
             }
             else {
-                printf("Please pick valid number to proceed\n");
+                ToOutput("Please pick valid number to proceed\n");
             }
         }
     }
@@ -1696,7 +1707,7 @@ void unequipItem(int itemType) {
         equipSlot = &Equipped.weapon;
     }
     else {
-        printf("FATAL ERROR, itemtype not supported, aborting\n");
+        ToOutput("FATAL ERROR, itemtype not supported, aborting\n");
         exit(1);
     }
 
@@ -1730,7 +1741,7 @@ void drinkItem(int idx) {
         return;
     }
 
-    printf(CC(C_MSG)"~~ You drink "CC(C_MSGHIGH)"%s"CC(C_MSG)" and regain "CC(C_MSGHIGH)"%i"CC(C_MSG)" hp ~~\n", item->def->name, item->def->healing);
+    ToOutput(CC(C_MSG)"~~ You drink "CC(C_MSGHIGH)"%s"CC(C_MSG)" and regain "CC(C_MSGHIGH)"%i"CC(C_MSG)" hp ~~\n", item->def->name, item->def->healing);
 
     health += item->def->healing;
     if (health > 100) {
@@ -2290,7 +2301,7 @@ char* goldenCorridorDesc =
 void TakeAllFromBox(struct Box* this) {
     while (this->inventory) {
         struct InventoryItem* item = this->inventory->payload;
-        printf(CC(C_MSG)"~~ You found "CC(C_MSGHIGH)"%s x%i"CC(C_MSG)" ~~\n"CC(C_RST), item->def->name, item->count);
+        ToOutput(CC(C_MSG)"~~ You found "CC(C_MSGHIGH)"%s x%i"CC(C_MSG)" ~~\n"CC(C_RST), item->def->name, item->count);
         transferItemOrCountAll(&this->inventory, &inventory, item, 1);
     }
 }
@@ -3054,16 +3065,16 @@ int isVisited(struct LocationTransfer* route) {
 void showLocationHints() {
     changeColor(C_TRACK_HINT);
 
-    if (isVisited(here->moves[NORTH])) printf("On the "CC(C_TRACK_HIGHHINT)"north"CC(C_TRACK_HINT)" you see %s\n", here->moves[NORTH]->closed ? ClosedDoorText : here->moves[NORTH]->destination->name);
-    if (isVisited(here->moves[EAST]))  printf("On the "CC(C_TRACK_HIGHHINT)"east"CC(C_TRACK_HINT)" you see %s\n", here->moves[EAST]->closed ? ClosedDoorText : here->moves[EAST]->destination->name);
-    if (isVisited(here->moves[SOUTH])) printf("On the "CC(C_TRACK_HIGHHINT)"south"CC(C_TRACK_HINT)" you see %s\n", here->moves[SOUTH]->closed ? ClosedDoorText : here->moves[SOUTH]->destination->name);
-    if (isVisited(here->moves[WEST]))  printf("On the "CC(C_TRACK_HIGHHINT)"west"CC(C_TRACK_HINT)" you see %s\n", here->moves[WEST]->closed ? ClosedDoorText : here->moves[WEST]->destination->name);
+    if (isVisited(here->moves[NORTH])) ToOutput("On the "CC(C_TRACK_HIGHHINT)"north"CC(C_TRACK_HINT)" you see %s\n", here->moves[NORTH]->closed ? ClosedDoorText : here->moves[NORTH]->destination->name);
+    if (isVisited(here->moves[EAST]))  ToOutput("On the "CC(C_TRACK_HIGHHINT)"east"CC(C_TRACK_HINT)" you see %s\n", here->moves[EAST]->closed ? ClosedDoorText : here->moves[EAST]->destination->name);
+    if (isVisited(here->moves[SOUTH])) ToOutput("On the "CC(C_TRACK_HIGHHINT)"south"CC(C_TRACK_HINT)" you see %s\n", here->moves[SOUTH]->closed ? ClosedDoorText : here->moves[SOUTH]->destination->name);
+    if (isVisited(here->moves[WEST]))  ToOutput("On the "CC(C_TRACK_HIGHHINT)"west"CC(C_TRACK_HINT)" you see %s\n", here->moves[WEST]->closed ? ClosedDoorText : here->moves[WEST]->destination->name);
     if (isVisited(here->moves[TRAVEL])) {
         if (here->moves[TRAVEL]->closed) {
-            printf("You cannot "CC(C_TRACK_HIGHHINT)"travel"CC(C_TRACK_HINT)". Path is blocked\n");
+            ToOutput("You cannot "CC(C_TRACK_HIGHHINT)"travel"CC(C_TRACK_HINT)". Path is blocked\n");
         }
         else {
-            printf("You can "CC(C_TRACK_HIGHHINT)"travel"CC(C_TRACK_HINT)" to %s\n", here->moves[TRAVEL]->destination->name);
+            ToOutput("You can "CC(C_TRACK_HIGHHINT)"travel"CC(C_TRACK_HINT)" to %s\n", here->moves[TRAVEL]->destination->name);
         }
     }
     changeColor(C_RST);
@@ -3073,18 +3084,18 @@ void nextPage() {
     printMsg("[ENTER] to continue");
     fillInput();
     cursorMoveOffset(0, -2);
-    printf("                                                                    \n");
+    ToOutput("                                                                    \n");
     cursorMoveOffset(0, -1);
     printLine();
 }
 
 void look() {
     changeColor(C_LOC_SND);
-    printf("\n~ -~~~~~~~~~~~~~- ~\n");
+    ToOutput("\n~ -~~~~~~~~~~~~~- ~\n");
     changeColor(C_LOC_PRM);
-    printf("%s\n", here->name);
+    ToOutput("%s\n", here->name);
     changeColor(C_LOC_SND);
-    printf("%s\n", here->description);
+    ToOutput("%s\n", here->description);
 
     printLine();
     showLocationHints();
@@ -3092,15 +3103,15 @@ void look() {
     if (here->inventory) {
         changeColor(C_LOC_ITEMS);
         printLine();
-        printf("Here lies:\n");
+        ToOutput("Here lies:\n");
         int idx = 1;
         for (struct ListItem* item = here->inventory; item != NULL; item = item->next, ++idx) {
             struct InventoryItem* invItem = item->payload;
             if (invItem->count > 1) {
-                printf("#%i %s x%i\n", idx, invItem->def->name, invItem->count);
+                ToOutput("#%i %s x%i\n", idx, invItem->def->name, invItem->count);
             }
             else {
-                printf("#%i %s\n", idx, invItem->def->name);
+                ToOutput("#%i %s\n", idx, invItem->def->name);
             }
         }
     }
@@ -3108,37 +3119,37 @@ void look() {
     if (here->monsters) {
         changeColor(C_LOC_MONSTERS);
         printLine();
-        printf("Monsters are here:\n");
+        ToOutput("Monsters are here:\n");
         int idx = 1;
         for (struct ListItem* monsterItem = here->monsters; monsterItem != NULL; monsterItem = monsterItem->next, ++idx) {
             struct Monster* monster = monsterItem->payload;
-            printf("#%i %s\n", idx, monster->def->name);
+            ToOutput("#%i %s\n", idx, monster->def->name);
         }
     }
 
     if (here->npcs) {
         changeColor(C_LOC_NPCS_TLT);
         printLine();
-        printf("People you see here:\n");
+        ToOutput("People you see here:\n");
         int idx = 1;
         for (struct ListItem* npcItem = here->npcs; npcItem != NULL; npcItem = npcItem->next, ++idx) {
             struct NPC* npc = npcItem->payload;
-            printf(CC(C_LOC_NPCS)"#%i %s\n", idx, npc->name);
-            printf(CC(C_LOC_NPCS_DESC)"  %s\n"CC(C_RST), npc->description);
+            ToOutput(CC(C_LOC_NPCS)"#%i %s\n", idx, npc->name);
+            ToOutput(CC(C_LOC_NPCS_DESC)"  %s\n"CC(C_RST), npc->description);
         }
     }
 
     if (here->boxes) {
-        printf(CC(C_LOC_BOXES)"\nThere are containers: \n");
+        ToOutput(CC(C_LOC_BOXES)"\nThere are containers: \n");
         int idx = 1;
         for (struct ListItem* boxItem = here->boxes; boxItem != NULL; boxItem = boxItem->next, ++idx) {
             struct Box* box = boxItem->payload;
-            printf("#%i %s\n", idx, box->name);
+            ToOutput("#%i %s\n", idx, box->name);
         }
     }
 
     changeColor(C_LOC_SND);
-    printf("~ -~~~~~~~~~~~~~- ~\n");
+    ToOutput("~ -~~~~~~~~~~~~~- ~\n");
     changeColor(C_RST);
 }
 
@@ -3176,25 +3187,25 @@ void enterLocation(int direction) {
 void showEquipedElement(struct ListItem* listItem, char* foundPrefix, char* notFoundMessage) {
     if (listItem) {
         struct InventoryItem* item = listItem->payload;
-        printf(CC(C_EQUIP)"%s "CC(C_MSGHIGH)"%s\n"CC(C_RST), foundPrefix, item->def->name);
-        printf(CC(C_DISABLED)"  %s\n"CC(C_RST), item->def->description);
+        ToOutput(CC(C_EQUIP)"%s "CC(C_MSGHIGH)"%s\n"CC(C_RST), foundPrefix, item->def->name);
+        ToOutput(CC(C_DISABLED)"  %s\n"CC(C_RST), item->def->description);
     }
     else {
-        printf(CC(C_EQUIP)"%s\n"CC(C_RST), notFoundMessage);
+        ToOutput(CC(C_EQUIP)"%s\n"CC(C_RST), notFoundMessage);
     }
 }
 
 void showEquipStatus() {
     showEquipedElement(Equipped.armor, "You wear", "You wear no armor");
     showEquipedElement(Equipped.weapon, "You wield", "You wield no weapon");
-    printf("\n");
+    ToOutput("\n");
 }
 
 void showInventory() {
     showMoneyStatus();
     showEquipStatus();
     if (inventory == NULL) {
-        printf("Your inventory is empty\n");
+        ToOutput("Your inventory is empty\n");
     }
     else {
         indexedListInventory(inventory);
@@ -3214,10 +3225,10 @@ void showJournal() {
         printLine();
 
         if (payload->completed) {
-            printf(CC(C_QUEST_DONE)"[ Completed ] "CC(C_RST));
+            ToOutput(CC(C_QUEST_DONE)"[ Completed ] "CC(C_RST));
         }
 
-        printf(CC(C_QUEST_TITLE)"%s"CC(C_RST)"\n  %s\n", payload->title, payload->description);
+        ToOutput(CC(C_QUEST_TITLE)"%s"CC(C_RST)"\n  %s\n", payload->title, payload->description);
     }
     printLine();
 }
@@ -3351,14 +3362,14 @@ struct TalkTree* QUEST_MissingCat_deliverShopKeeper(struct TalkOption* this) {
     struct InventoryItem* corpse = FindInventoryEntry(&ITEMD_QUEST_CatCorpse);
     removeFromList(&inventory, corpse);
     printMsgHigh("You hand over", ITEMD_QUEST_CatCorpse.name);
-    printf(
+    ToOutput(
         "Thank you.\n"
         "My daughter must not see this poor cat like that.\n"
         "It will be better for her to think that she just ran away.\n"
     );
 
     nextPage();
-    printf("Take this little compenstation for your time.\n");
+    ToOutput("Take this little compenstation for your time.\n");
     printMsgHigh("You receive", "50 gold coins");
     money += 50;
 
@@ -3409,7 +3420,7 @@ void TALK_VillageShopKeeper(struct NPC* this) {
 
 struct TalkTree* QUEST_MissingCat_start(struct TalkOption* this) {
     if (findJournalEntry(QuestMissingCat)) {
-        printf("QUEST_MissingCat_start quest already taken\n");
+        ToOutput("QUEST_MissingCat_start quest already taken\n");
     }
     else {
         addQuest(&QUEST_MissingCat);
@@ -3424,10 +3435,10 @@ struct TalkTree* QUEST_MissingCat_deliverDaughter(struct TalkOption* this) {
     printMsgHigh("You hand over", ITEMD_QUEST_CatCorpse.name);
 
 
-    printf("Ow nooo. My little kitty. Why??\n");
+    ToOutput("Ow nooo. My little kitty. Why??\n");
     nextPage();
     printMsg("After a moment she handles herself and stops crying");
-    printf(
+    ToOutput(
         "I need to bury her...  please take this as a token of my gratitude.\n"
         "You are very good paladin sir.\n"
     );
@@ -3488,14 +3499,14 @@ struct TalkTree TALKTree_VillageEldersDaughter_1 = {
 void TALK_VillageEldersDaughter(struct NPC* this) {
     if (GameState.catQuestEnding == CATQUEST_ENDING_MOTHER) {
         printMsg("A little girl is sad");
-        printf(
+        ToOutput(
             "Mommy said that farmer saw my kitty, she must have just ran away.\n"
             "Maybe she will visit me some day.\n"
         );
     }
     else if (GameState.catQuestEnding == CATQUEST_ENDING_GIRL) {
         printMsg("A little girl is calm");
-        printf(
+        ToOutput(
             "I made her a beautiful funeral. Daddy helped me with digging a grave.\n"
             "I've planted flowers there, she will be in peace now.\n"
             "Thank you again sir for finding her.\n"
@@ -3521,7 +3532,7 @@ int QUEST_MissingPaladin_vis(struct TalkOption* this) {
 
 struct TalkTree* QUEST_MissingPaladin_start(struct TalkOption* this) {
     printMsg("Blacksmith gives you a pathetic look");
-    printf(
+    ToOutput(
         "Ok mister.\n"
         "I get your kind. Seen a lot of you recently here.\n"
         "There was one of you with a pretty nice sword recently here.\n"
@@ -3545,7 +3556,7 @@ struct TalkTree* QUEST_MissingPaladin_complete(struct TalkOption* this) {
         printMsgHigh("You hand over", sword->def->name);
         printMsgHigh("You get", "200 gold coins");
         money += 200;
-        printf("Thank you dear sir. Now I can truly study some well crafted blade.\n");
+        ToOutput("Thank you dear sir. Now I can truly study some well crafted blade.\n");
 
         struct ListItem* removeMe = NULL;
         transferItem(&inventory, &removeMe, sword);
@@ -3555,7 +3566,7 @@ struct TalkTree* QUEST_MissingPaladin_complete(struct TalkOption* this) {
     }
     else {
         printMsg("You decided to keep the sword. The blacksmith is not happy.");
-        printf("If this is what you want, fine. After all I think it is not worth my 200 coins.\n");
+        ToOutput("If this is what you want, fine. After all I think it is not worth my 200 coins.\n");
     }
 
     return NULL;
@@ -3614,7 +3625,7 @@ void TALK_VillageHerbalist(struct NPC* this) {
 
 struct TalkTree* QUEST_Ghost_start(struct TalkOption* this) {
     printMsg("Ghost floats happily to the top of a hall and flies back with cheer on its face");
-    printf(
+    ToOutput(
         "Thank you sir.\n"
         "You are my only hope.\n"
         "Please bring be an amulet.\n"
@@ -3640,7 +3651,7 @@ void ghostQuestComplete() {
 }
 
 void onSlayGhost() {
-    printf("Ghost disappeared in a mist\n");
+    ToOutput("Ghost disappeared in a mist\n");
     ghostQuestComplete();
 }
 
@@ -3650,7 +3661,7 @@ void triggerGhostFight(int playerAttacks) {
     appendToList(&here->monsters, ghostEnemy);
 
     if (!playerAttacks) {
-        printf("Ghost suddently attack you\n");
+        ToOutput("Ghost suddently attack you\n");
     }
     fightMode(ghostEnemy, playerAttacks);
     if (here != &loc_ABANDONED_TEMPLE_ENTRY) {
@@ -3739,7 +3750,7 @@ int QUEST_Farmer_vis(struct TalkOption* this) {
 }
 
 struct TalkTree* QUEST_Farmer_start(struct TalkOption* this) {
-    printf(
+    ToOutput(
         "My barn is to the west.\n"
         "Deal with the beasts and come back to me once you're done\n"
         "You shall be well rewarded.\n"
@@ -3761,24 +3772,24 @@ void openSecretPath() {
 
 struct TalkTree* QUEST_Farmer_done(struct TalkOption* this) {
     printMsg("The farmer is very happy");
-    printf(
+    ToOutput(
         "Thank you my boy.\n"
         "Now I can get back to work without worries.\n"
         "I can tell you a secret as a reward for your trouble.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         "South from here, there is a path.\n"
         "At the end of it, there is a small cave.\n"
     );
 
     nextPage();
-    printf(
+    ToOutput(
         "Inside you can find a secret passage, it leads to church undergrounds.\n"
         "I've played there as a child, maybe it is still opened.\n"
     );
     nextPage();
-    printf("Good luck.\n");
+    ToOutput("Good luck.\n");
 
     struct JournalEntry* quest = findJournalEntry(QuestFarmerRatsProblem);
     completeQuest(quest);
@@ -3937,7 +3948,7 @@ struct TalkTree* HealByHealer(struct TalkOption* this) {
     }
 
     if (money < cost) {
-        printf("Sorry, you cannot afford such medical care.\n");
+        ToOutput("Sorry, you cannot afford such medical care.\n");
         return &TalkSelf;
     }
     else {
@@ -3948,7 +3959,7 @@ struct TalkTree* HealByHealer(struct TalkOption* this) {
         if (health > 100) health = 100;
         int healed = health - wasHP;
 
-        printf(CC(C_MSG) "~~ You are charged " CC(C_MSGHIGH)"%i gold"CC(C_MSG)" and healed "CC(C_MSGHIGH)"%i "CC(C_MSG)"HP. You have "CC(C_MSGHIGH)"%i "CC(C_MSG)"HP ~~\n"CC(C_RST), cost, healed, health);
+        ToOutput(CC(C_MSG) "~~ You are charged " CC(C_MSGHIGH)"%i gold"CC(C_MSG)" and healed "CC(C_MSGHIGH)"%i "CC(C_MSG)"HP. You have "CC(C_MSGHIGH)"%i "CC(C_MSG)"HP ~~\n"CC(C_RST), cost, healed, health);
         return &TalkSelf;
     }
 }
@@ -4017,7 +4028,7 @@ void openChurchDoors() {
 
 void showIntro() {
     printMsg("The elder of your order approaches you");
-    printf(
+    ToOutput(
         "> Hello my son.. it has been a while since we last spoke.\n"
         "  There is a grave danger and a time comes when you can prove your loyalty.\n"
         "> God must have heard your prey because it blessed you with a quest.\n"
@@ -4032,103 +4043,103 @@ void showIntro() {
 
     nextPage();
     printMsg("The elder comes closer and puts his hand on your shoulder");
-    printf("> Stay safe my child, remember your training, you are the hand of God now.\n");
+    ToOutput("> Stay safe my child, remember your training, you are the hand of God now.\n");
     nextPage();
     printMsg("The elder leaves the room, leaving you with your thoughts.");
     nextPage();
     printMsg("You pack your belongings, run down the tower, and meet a driver");
-    printf("> Sir, the carrage is waiting. We need to rush.\n");
+    ToOutput("> Sir, the carrage is waiting. We need to rush.\n");
     nextPage();
     printMsg("You enter the carrage and await where it takes you. The quest begins...");
     printLine();
     printLine();
     nextPage();
-    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~ THE PALADIN ~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+    ToOutput("~~~~~~~~~~~~~~~~~~~~~~~~~~~ THE PALADIN ~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     nextPage();
 }
 
 void showOutro() {
     printMsg("After a tough fight, you managed to escape the catacombs.");
     nextPage();
-    printf(CC(C_CYAN)   "You stand in front of the church door.\n");
-    printf(CC(C_BCYAN)  "You are tired. Your hands are shaking, you barely stand straight.\n");
+    ToOutput(CC(C_CYAN)   "You stand in front of the church door.\n");
+    ToOutput(CC(C_BCYAN)  "You are tired. Your hands are shaking, you barely stand straight.\n");
     nextPage();
-    printf(CC(C_MAGENTA)    "With all your strength, you push the doors.\n");
-    printf(CC(C_BMAGENTA)   "The priest welcomes you with tears in his eyes.\n");
-    printf(CC(C_MAGENTA)    "There are others around him, all full of hope.\n");
-    printf(CC(C_BMAGENTA)   "Nobody dares to say anything.\n");
+    ToOutput(CC(C_MAGENTA)    "With all your strength, you push the doors.\n");
+    ToOutput(CC(C_BMAGENTA)   "The priest welcomes you with tears in his eyes.\n");
+    ToOutput(CC(C_MAGENTA)    "There are others around him, all full of hope.\n");
+    ToOutput(CC(C_BMAGENTA)   "Nobody dares to say anything.\n");
     nextPage();
-    printf(CC(C_BWHITE)     "It is done.\n");
+    ToOutput(CC(C_BWHITE)     "It is done.\n");
     nextPage();
-    printf(CC(C_GREEN)      "You barely recognize your voice.\n");
-    printf(CC(C_BGREEN)     "People are laughing, crying out loud, shouting in joy.\n");
-    printf(CC(C_GREEN)      "Evil is gone.\n");
+    ToOutput(CC(C_GREEN)      "You barely recognize your voice.\n");
+    ToOutput(CC(C_BGREEN)     "People are laughing, crying out loud, shouting in joy.\n");
+    ToOutput(CC(C_GREEN)      "Evil is gone.\n");
     nextPage();
-    printf(CC(C_WHITE)      "Once the joy was over and people got back to their daily work,\n");
-    printf(CC(C_BWHITE)     "a hero entered the carrage and drove back to The Order.\n");
-    printf(CC(C_WHITE)      "Always on duty, always ready to spread good and fight evil forces.\n");
+    ToOutput(CC(C_WHITE)      "Once the joy was over and people got back to their daily work,\n");
+    ToOutput(CC(C_BWHITE)     "a hero entered the carrage and drove back to The Order.\n");
+    ToOutput(CC(C_WHITE)      "Always on duty, always ready to spread good and fight evil forces.\n");
     nextPage();
-    printf(CC(C_CYAN)       "In the name of God, in the name of The Order, one never stops to be\n");
+    ToOutput(CC(C_CYAN)       "In the name of God, in the name of The Order, one never stops to be\n");
     nextPage();
-    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~ THE PALADIN ~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+    ToOutput("~~~~~~~~~~~~~~~~~~~~~~~~~~~ THE PALADIN ~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     nextPage();
 }
 
 void showEvilOutro() {
     printMsg("Once you get out of the church, you smell a smoke");
-    printf(
+    ToOutput(
         CC(C_RED)   "Fire spreads across town.\n"
         CC(C_BRED)  "The Chapel's roof collapsed. Flames covered every surrounding building.\n"
         CC(C_RED)   "Bodies lay on the ground. You recognize a priest. He tries to reach you.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         CC(C_BBLACK)    "You run covered by smoke and terror towards him.\n"
         CC(C_WHITE)     "Once near, you hold his hand, his face is black from the smoke.\n"
         CC(C_BBLACK)    "He wants to say something but has no strength. You lower your head closer to him\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         CC(C_CYAN)      "He only manages to whisper:\n"
         CC(C_MAGENTA)   "> Traitor\n"
         CC(C_BMAGENTA)  "> I curse you traitor\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         CC(C_BBLACK)    "He dies in your arms.\n"
         CC(C_RED)       "Fire is closer every second.\n"
         CC(C_BRED)      "You are trapped, a wall of fire is coming.\n"
         CC(C_BBLACK)    "Smoke brings tears and takes your breath.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         CC(C_CYAN)      "In despair, you try to get back to Church.\n"
         CC(C_BCYAN)     "You try to open it, but the doors are so heavy.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         CC(C_CYAN)      "You try harder and harder, only to realize\n"
         CC(C_BCYAN)     "that the doors are shut.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         CC(C_BBLACK)    "Another cloud of smoke reaches you and you feel that you collapse.\n"
         CC(C_WHITE)     "The shame, the despair, the anger. You want to pray.\n"
         CC(C_CYAN)      "But the only thing that you can remember is the face of the vampire.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         CC(C_MAGENTA)   "His smiling face is your companion in your final moments.\n"
         CC(C_BMAGENTA)  "The regret is a pain which is the last feeling in the heart of...\n"
     );
 
-    printf(CC(C_RST)"~~~~~~~~~~~~~~~~~~~~~~~~~~~ THE PALADIN ~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+    ToOutput(CC(C_RST)"~~~~~~~~~~~~~~~~~~~~~~~~~~~ THE PALADIN ~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     nextPage();
 }
 
 struct TalkTree* TALK_Priest_GetKey(struct TalkOption* this) {
     GameState.priestGaveKey = 1;
-    printf(
+    ToOutput(
         "Church is closed. Here is a key.\n"
         "But be aware. Catacombs are very deep and ancient.\n"
         "We've never went deeper than just below church itself.\n"
@@ -4267,7 +4278,7 @@ enum {
 struct TalkTree* VampireOnIntroduce(struct TalkOption* this) {
     printMsg("Vampire opens his hands in a friendly gesture");
 
-    printf("Calm down my dear.\n"
+    ToOutput("Calm down my dear.\n"
         "How about I make you an offer?\n"
         "I'm sure you don't want to become another nameless fool.\n"
         "Don't you wonder why nobody returned from here?\n"
@@ -4280,7 +4291,7 @@ struct TalkTree* VampireOnIntroduce(struct TalkOption* this) {
 struct TalkTree* VampireShowOffer(struct TalkOption* this) {
     printMsg("Vampire has a wide smile, he is eager to share his brilliant idea.");
 
-    printf(
+    ToOutput(
         "I'm stuck here for centuries\n"
         "You cannot even imagine how boring it is to stay here.\n"
         "Only dead people as a company and old books.\n"
@@ -4290,25 +4301,25 @@ struct TalkTree* VampireShowOffer(struct TalkOption* this) {
     );
 
     nextPage();
-    printf(
+    ToOutput(
         "There is a curse cast on me a long time ago.\n"
         "I cannot leave this church until someone invites me outside of a church.\n"
         "Few months ago I almost succeed. One of a priests wanted to help me.\n"
         "He invited me upstairs.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         "It almost worked, but holy crossed casted light upon me\n"
         "Priest realised who I am and run away, inviting me only to a church.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         "Then all these fools started to crawl here, so I had some company.\n"
         "Poor souls started to join me as sceletons and ghouls, but still nobody invited me outside.\n"
         "And I need to leave. I cannot be damned here for ever. It is too much to suffer.\n"
     );
     nextPage();
-    printf(
+    ToOutput(
         "I don't want your poor soul. I will spare you, in exchange for a simple invitation.\n"
         "Ask me to join you in a walk through the city streets.\n"
         "Your quest will be fulfilled.\n"
@@ -4316,7 +4327,7 @@ struct TalkTree* VampireShowOffer(struct TalkOption* this) {
         "I will never again visit this city.\n"
     );
     nextPage();
-    printf("What say you?\n");
+    ToOutput("What say you?\n");
     nextPage();
     VampireTalkState.showMessage = VAMPIRE_PICK_SCENARIO;
     return &TalkSelf;
@@ -4342,7 +4353,7 @@ struct TalkTree* VampireOnInvite(struct TalkOption* this) {
 }
 
 struct TalkTree* VampireOnSlay(struct TalkOption* this) {
-    printf("You fool. There is nothing waiting for you here, except death.\n");
+    ToOutput("You fool. There is nothing waiting for you here, except death.\n");
     printMsg("The vampire changes into a bat a flies towards his coffin at the end of the corridor.");
     return NULL;
 }
@@ -4386,8 +4397,8 @@ void onPickCatCorpse(struct InventoryItem* item) {
     GameState.catCorpsePicked = 1;
     struct JournalEntry* quest = findJournalEntry(QuestMissingCat);
     changeColor(COLOR_CYAN);
-    if (quest)  printf("It must be a poor cat, which little girl is looking for.\n");
-    else        printf("I wonder if anyone is looking for this cat.\n");
+    if (quest)  ToOutput("It must be a poor cat, which little girl is looking for.\n");
+    else        ToOutput("I wonder if anyone is looking for this cat.\n");
 
     changeColor(COLOR_RESET);
 }
@@ -4444,7 +4455,7 @@ void talk(int idx) {
 }
 
 void defaultOnClosedCallback(int direction) {
-    printf("You cannot move %s, path is blocked\n", DIRECTIONNAMES[direction]);
+    ToOutput("You cannot move %s, path is blocked\n", DIRECTIONNAMES[direction]);
 }
 
 void playerDied() {
@@ -4456,7 +4467,7 @@ void playerDied() {
 void prompt() {
     printHealth();
     printMoves();
-    printf("$ ");
+    ToOutput("$ ");
     if (health > 0) {
         fillInput();
     }
@@ -4593,7 +4604,7 @@ struct NPC* newNPC(int identity, char* name, char* description, void (*onTalkCal
 }
 
 void strangerOnTalk(struct NPC* this) {
-    printf("Stranger only nods ... he does not seem to like to talk to strangers\n");
+    ToOutput("Stranger only nods ... he does not seem to like to talk to strangers\n");
 }
 
 int talkerCanSeeThirdOption(struct TalkOption* this) {
@@ -4603,11 +4614,11 @@ int talkerCanSeeThirdOption(struct TalkOption* this) {
 struct TalkTree talkerTalkTree;
 struct TalkTree* talkWithAction(struct TalkOption* this) {
     if (inventory == NULL) {
-        printf("I see you have nothing of interrest..\n");
+        ToOutput("I see you have nothing of interrest..\n");
         return &talkerTalkTree;
     }
     else {
-        printf("Hmm a lot of handy stuff, get out here before I get it all!!\n");
+        ToOutput("Hmm a lot of handy stuff, get out here before I get it all!!\n");
         return NULL;
     }
 }
@@ -4701,7 +4712,7 @@ void cmd_jmpto(char* cmd) {
     char* argIdx = findArg(cmd, 1);
     if (argIdx) {
         if (findArg(argIdx, 1)) {
-            printf("Expected 1 argument, got more...\n");
+            ToOutput("Expected 1 argument, got more...\n");
             return;
         }
 
@@ -4721,7 +4732,7 @@ void cmd_jmpto(char* cmd) {
         }
 
         if (!target) {
-            printf("Cannot find location %s\n", argIdx);
+            ToOutput("Cannot find location %s\n", argIdx);
         }
         else {
             jmpTo(target, each->cursorPos);
@@ -4729,12 +4740,12 @@ void cmd_jmpto(char* cmd) {
 
     }
     else {
-        printf("use: jmpto <LOCATION>\n");
-        printf("Locations: \n");
+        ToOutput("use: jmpto <LOCATION>\n");
+        ToOutput("Locations: \n");
         struct NameToLocation* each = JMPS;
         for (;;) {
             if (each->key) {
-                printf("%s\n", each->key);
+                ToOutput("%s\n", each->key);
                 ++each;
             }
             else break;
@@ -4756,15 +4767,15 @@ void cmd_bot(char* cmd) {
         else if (num == 3) BOT_run(BOTSequence_WalkMain);
         else if (num == 4) BOT_run(BOTSequence_FinalFight);
         else {
-            printf("Not such program\n");
+            ToOutput("Not such program\n");
         }
     }
     else {
-        printf("Supported bots:\n");
-        printf("1) ShowHelp\n");
-        printf("2) WalkDemo\n");
-        printf("3) WalkMain\n");
-        printf("4) FinalFight\n");
+        ToOutput("Supported bots:\n");
+        ToOutput("1) ShowHelp\n");
+        ToOutput("2) WalkDemo\n");
+        ToOutput("3) WalkMain\n");
+        ToOutput("4) FinalFight\n");
     }
 }
 
@@ -4891,50 +4902,50 @@ void initGlobalNPCList() {
 //#ifdef WITHDEBUG
 
 void printTalkOption(struct TalkOption* ptr) {
-    for (;ptr->message;ptr++) {
-        printf("%s\n", ptr->message);
+    for (; ptr->message; ptr++) {
+        ToOutput("%s\n", ptr->message);
         if (ptr->response) {
-            printf("%s\n", ptr->response);
+            ToOutput("%s\n", ptr->response);
         }
     }
 }
 
 void cmd_alltexts(char* cmd) {
-    printf("LOCATIONS\n");
+    ToOutput("LOCATIONS\n");
     for (int i = 0; i < GLOBALLOCATIONLISTSIZE; i++) {
         struct Location* loc = globalLocationList[i];
         if (loc) {
-            printf("%s\n%s\n\n", loc->name, loc->description);
+            ToOutput("%s\n%s\n\n", loc->name, loc->description);
         }
         else break;
     }
 
-    printf("ITEMS\n");
+    ToOutput("ITEMS\n");
     for (struct ListItem* head = globalItemDefList; head != NULL; head = head->next) {
         struct InventoryItemDefinition* each = head->payload;
-        printf("%s\n%s\n\n", each->name, each->description);
+        ToOutput("%s\n%s\n\n", each->name, each->description);
     }
 
-    printf("MONSTERS\n");
+    ToOutput("MONSTERS\n");
     for (struct ListItem* head = globalMonsterDefList; head != NULL; head = head->next) {
         struct MonsterDefinition* each = head->payload;
-        printf("%s\n\n", each->name);
+        ToOutput("%s\n\n", each->name);
     }
 
-    printf("NPCs\n");
+    ToOutput("NPCs\n");
     for (int i = 0; i < GLOBALNPCSLISTSIZE; i++) {
         struct NPC* npc = globalNPCList[i];
         if (npc) {
-            printf("%s\n%s\n\n", npc->name, npc->description);
+            ToOutput("%s\n%s\n\n", npc->name, npc->description);
         }
         else break;
     }
 
-    printf("JOURNAL\n");
+    ToOutput("JOURNAL\n");
     for (int i = 0; i < GLOBALJOURNALENTRYLISTSIZE; i++) {
         struct JournalEntry* journal = globalJournalEntryList[i];
         if (journal) {
-            printf("%s\n%s\n\n", journal->title, journal->description);
+            ToOutput("%s\n%s\n\n", journal->title, journal->description);
         }
         else break;
     }
@@ -4961,8 +4972,8 @@ void cmd_alltexts(char* cmd) {
         NULL
     };
 
-    printf("TALK OPTIONS\n");
-    for (int i=0;;i++) {
+    ToOutput("TALK OPTIONS\n");
+    for (int i = 0;; i++) {
         struct TalkOption* each = talkOptions[i];
         if (each) {
             printTalkOption(each);
@@ -4994,11 +5005,11 @@ void cmd_alltexts(char* cmd) {
         NULL
     };
 
-    printf("TALK TREE\n");
-    for (int i=0;;i++) {
+    ToOutput("TALK TREE\n");
+    for (int i = 0;; i++) {
         struct TalkTree* each = talkTrees[i];
         if (each) {
-            printf("%s\n", each->welcome);
+            ToOutput("%s\n", each->welcome);
         }
         else {
             break;
@@ -5096,7 +5107,7 @@ struct Location* symbolToLocation(char symbol) {
     else if (symbol == ' ') return NULL;
 
     else {
-        printf("FATAL ERROR: cannot resolve symbol %c\n", symbol);
+        ToOutput("FATAL ERROR: cannot resolve symbol %c\n", symbol);
         exit(3);
         return NULL;
     }
@@ -5104,7 +5115,7 @@ struct Location* symbolToLocation(char symbol) {
 
 int validateLocationidx(int locationIdx) {
     if (locationIdx >= GLOBALLOCATIONLISTSIZE) {
-        printf("PANIC! exceeded global location list\n");
+        ToOutput("PANIC! exceeded global location list\n");
         exit(1);
     }
 
@@ -5114,7 +5125,7 @@ int validateLocationidx(int locationIdx) {
 struct Location* loadIdxLocation(int idx) {
     struct Location* loc = globalLocationList[validateLocationidx(idx)];
     if (!loc) {
-        printf("PANIC!! pointed to not existing location\n");
+        ToOutput("PANIC!! pointed to not existing location\n");
         exit(1);
     }
 
@@ -5196,7 +5207,7 @@ void cmd_unequip(char* cmd) {
     char* expected = "use: unequip [weapon|armor]";
 
     if (argIdx == NULL) {
-        printf("%s\n", expected);
+        ToOutput("%s\n", expected);
         return;
     }
 
@@ -5207,7 +5218,7 @@ void cmd_unequip(char* cmd) {
         unequipItem(ITYPE_WEAPON);
     }
     else {
-        printf("%s\n", expected);
+        ToOutput("%s\n", expected);
         return;
     }
 }
@@ -5248,15 +5259,15 @@ void cmd_talk(char* cmd) {
 }
 
 void cmd_credits(char* cmd) {
-    printf("Thank you for checking out the game.\n");
-    printf("https://github.com/macvek/PaladinTheGame\n\n");
-    printf("MIT License\n\nCopyright (c) 2023 Maciej Aleksandrowicz\n");
+    ToOutput("Thank you for checking out the game.\n");
+    ToOutput("https://github.com/macvek/PaladinTheGame\n\n");
+    ToOutput("MIT License\n\nCopyright (c) 2023 Maciej Aleksandrowicz\n");
     printMsg("With Regards, Maciej Aleksandrowicz");
 }
 
 void cmd_exit(char* cmd) {
     saveGame();
-    printf("bye bye\n");
+    ToOutput("bye bye\n");
     parseInputRetCode = 0;
 }
 
@@ -5269,10 +5280,10 @@ void printHelpMessage(struct CommandHandler* commandList) {
             desc = "TODO!";
         }
         if (cmd->testString[1]) {
-            printf("%s, %s "CC(C_BBLACK)"%s"CC(C_RST)"\n", cmd->testString[0], cmd->testString[1], desc);
+            ToOutput("%s, %s "CC(C_BBLACK)"%s"CC(C_RST)"\n", cmd->testString[0], cmd->testString[1], desc);
         }
         else {
-            printf("%s "CC(C_BBLACK)"%s"CC(C_RST)"\n", cmd->testString[0], desc);
+            ToOutput("%s "CC(C_BBLACK)"%s"CC(C_RST)"\n", cmd->testString[0], desc);
         }
     }
 }
@@ -5333,7 +5344,7 @@ struct CommandHandler commands[] = {
 };
 
 void cmd_help(char* cmd) {
-    printf("General help:\n");
+    ToOutput("General help:\n");
     printHelpMessage(commands);
 }
 
@@ -5343,7 +5354,7 @@ int calcHit(int min, int max, int ac) {
     int ret = min + randVal - ac;
     ret = ret < 1 ? 1 : ret;
 #ifdef SHOWCALC
-    printf("calc: min + randVal(1+max-min) - ac = %i + %i - %i = %i\n", min, randVal, ac, ret);
+    ToOutput("calc: min + randVal(1+max-min) - ac = %i + %i - %i = %i\n", min, randVal, ac, ret);
 #endif
     return ret;
 }
@@ -5364,7 +5375,7 @@ void endFight() {
 void nextEnemy() {
     if (enemies && enemy == NULL) {
         enemy = enemies->payload;
-        printf("You now fight with "CC(C_FIGHT_MSGHIGH)"%s\n"CC(C_RST), enemy->def->name);
+        ToOutput("You now fight with "CC(C_FIGHT_MSGHIGH)"%s\n"CC(C_RST), enemy->def->name);
     }
 }
 
@@ -5381,7 +5392,7 @@ void joinOtherMonsters() {
         struct Monster* locationMonster = head->payload;
         if (locationMonster->def->joinsFight && !findPayload(enemies, locationMonster)) {
             appendToList(&enemies, locationMonster);
-            printf(CC(C_RST)"Monster "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_MSG)" joins fight\n", locationMonster->def->name);
+            ToOutput(CC(C_RST)"Monster "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_MSG)" joins fight\n", locationMonster->def->name);
         }
     }
     nextEnemy();
@@ -5392,18 +5403,18 @@ void fightEnemiesRound() {
     for (struct ListItem* head = enemies; head != NULL; head = head->next) {
         struct Monster* currentEnemy = head->payload;
         if (currentEnemy->def == &MONSTERDEF_Vampire && currentEnemy->hp == 1) {
-            printf("Vampire's body lays unconcious on the floor\n");
+            ToOutput("Vampire's body lays unconcious on the floor\n");
             return;
         }
 
         if (currentEnemy->stun) {
-            printf("~~ %s is stunned ~~\n", currentEnemy->def->name);
+            ToOutput("~~ %s is stunned ~~\n", currentEnemy->def->name);
             --currentEnemy->stun;
         }
         else {
             int hit = calcHit(currentEnemy->def->minAttack, currentEnemy->def->maxAttack, equippedAC());
             health -= hit;
-            printf("~~ You are hit by "CC(C_BRED)"%s"CC(C_RED)"[%i/%i]"CC(C_RST)" for "CC(C_BRED)"%i"CC(C_RST)" hp ~~\n",
+            ToOutput("~~ You are hit by "CC(C_BRED)"%s"CC(C_RED)"[%i/%i]"CC(C_RST)" for "CC(C_BRED)"%i"CC(C_RST)" hp ~~\n",
                 currentEnemy->def->name,
                 currentEnemy->hp, currentEnemy->def->maxHp
                 , hit);
@@ -5430,11 +5441,11 @@ void onVampireFinish() {
     GameState.goodEnding = 1;
     printMsg("You hit a vampire with a wooden peg. Straight to the heart.");
     nextPage();
-    printf(
+    ToOutput(
         CC(C_BCYAN)"He releases his last breath.\n"
         "His body in an instance changes into a pile of ash.\n");
     nextPage();
-    printf(
+    ToOutput(
         CC(C_BWHITE)"Blast of wind comes and ash disappears.\n"
         "His misery is over...\n"
         CC(C_RST));
@@ -5449,7 +5460,7 @@ void commitAttack(struct InventoryItemDefinition* weapon) {
         if (enemy->def == &MONSTERDEF_Vampire && enemy->hp < 5) {
             enemy->hp = 5;  // hp=5 for vampire is an entry to a special mode
         }
-        printf(CC(C_FIGHT_YOU)"> You hit "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_YOU)" using "CC(C_MSGHIGH)"%s"CC(C_FIGHT_YOU)" for "CC(C_FIGHT_MSGHIGH)"%i"CC(C_FIGHT_YOU)" hp\n"CC(C_RST), enemy->def->name, weapon->name, hit);
+        ToOutput(CC(C_FIGHT_YOU)"> You hit "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_YOU)" using "CC(C_MSGHIGH)"%s"CC(C_FIGHT_YOU)" for "CC(C_FIGHT_MSGHIGH)"%i"CC(C_FIGHT_YOU)" hp\n"CC(C_RST), enemy->def->name, weapon->name, hit);
     }
     else if (enemy->def == &MONSTERDEF_Vampire && enemy->hp <= 5) {
         if (weapon == &ITEMD_WEAPON_WoodenPeg && enemy->hp == 1) {
@@ -5466,7 +5477,7 @@ void commitAttack(struct InventoryItemDefinition* weapon) {
     }
 
     if (enemy->hp <= 0) {
-        printf(CC(C_FIGHT_MSG)"~~ "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_MSG)" is slayed ~~\n"CC(C_RST), enemy->def->name);
+        ToOutput(CC(C_FIGHT_MSG)"~~ "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_MSG)" is slayed ~~\n"CC(C_RST), enemy->def->name);
         fightKillEnemy();
     }
 }
@@ -5478,20 +5489,20 @@ void onBomb(struct InventoryItemDefinition* bomb) {
     else if (bomb == &ITEMD_BOMB_RatShot) {
         if (enemy->def == &MONSTERDEF_Rat || enemy->def == &MONSTERDEF_RatKing || enemy->def == &MONSTERDEF_SmallRat) {
             enemy->stun = bomb->minAttack + randOf(bomb->maxAttack - bomb->minAttack);
-            printf(CC(C_FIGHT_YOU)"> "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_YOU)" is stunned for "CC(C_MSGHIGH)"%i"CC(C_FIGHT_YOU)" rounds\n"CC(C_RST), enemy->def->name, enemy->stun);
+            ToOutput(CC(C_FIGHT_YOU)"> "CC(C_FIGHT_MSGHIGH)"%s"CC(C_FIGHT_YOU)" is stunned for "CC(C_MSGHIGH)"%i"CC(C_FIGHT_YOU)" rounds\n"CC(C_RST), enemy->def->name, enemy->stun);
         }
         else {
-            printf(CC(C_DISABLED)"> %s is not affected by %s\n"CC(C_RST), enemy->def->name, bomb->name);
+            ToOutput(CC(C_DISABLED)"> %s is not affected by %s\n"CC(C_RST), enemy->def->name, bomb->name);
         }
     }
     else {
-        printf("!!! PANIC. Running onBomb on unsupported bomb: %s, aborting\n", bomb->saveName);
+        ToOutput("!!! PANIC. Running onBomb on unsupported bomb: %s, aborting\n", bomb->saveName);
         exit(1);
     }
 }
 
 void useBomb(struct InventoryItem* item) {
-    printf(CC(C_MSG)"~~ You throw "CC(C_MSGHIGH)"%s"CC(C_MSG)" at your enemies ~~\n", item->def->name);
+    ToOutput(CC(C_MSG)"~~ You throw "CC(C_MSGHIGH)"%s"CC(C_MSG)" at your enemies ~~\n", item->def->name);
 
     struct InventoryItemDefinition* bomb = item->def;
 
@@ -5520,9 +5531,9 @@ void useBomb(struct InventoryItem* item) {
 void fightActionUse() {
     for (;;) {
         showEquipStatus();
-        printf("> What do you want to use?\n"CC(C_TALK_EXIT)"#0 back\n"CC(C_RST));
+        ToOutput("> What do you want to use?\n"CC(C_TALK_EXIT)"#0 back\n"CC(C_RST));
         indexedListInventoryWithMode(inventory, SHOW_USE);
-        printf("use #?> ");
+        ToOutput("use #?> ");
         fillInput();
         int num = readInt(input);
         if (num <= 0) {
@@ -5555,8 +5566,8 @@ void fightActionUse() {
 
 void fightPrompt() {
     printHealth();
-    printFightMoves();
-    printf("@ ");
+    ToOutputightMoves();
+    ToOutput("@ ");
     fillInput();
 }
 
@@ -5576,7 +5587,7 @@ void fightActionAttack() {
 }
 
 void fightActionFlee() {
-    printFightMsg("You managed to flee from a fight to your previous location");
+    ToOutputightMsg("You managed to flee from a fight to your previous location");
     endFight();
     enterLocation(fleeDirection);
 }
@@ -5588,15 +5599,15 @@ void fightActionTarget() {
     for (struct ListItem* head = enemies; head != NULL; head = head->next) {
         struct Monster* monster = head->payload;
         ++idx;
-        printf("%i) %s [%i/%i]\n", idx, monster->def->name, monster->hp, monster->def->maxHp);
+        ToOutput("%i) %s [%i/%i]\n", idx, monster->def->name, monster->hp, monster->def->maxHp);
     }
 
     for (;;) {
-        printf("target #?> ");
+        ToOutput("target #?> ");
         fillInput();
         int num = readInt(input);
         if (num <= 0 || num > idx) {
-            printf("Cannot find such monster. Try again.\n");
+            ToOutput("Cannot find such monster. Try again.\n");
             continue;
         }
         struct ListItem* picked = enemies;
@@ -5637,7 +5648,7 @@ struct CommandHandler fightCommands[] = {
 };
 
 void cmd_fight_help(char* cmd) {
-    printf("Fight mode help:\n");
+    ToOutput("Fight mode help:\n");
     printHelpMessage(fightCommands);
 }
 
@@ -5649,17 +5660,17 @@ void fightMode(struct Monster* attackIt, int userAttacks) {
     enemy = attackIt;
     appendToList(&enemies, enemy);
     if (userAttacks) {
-        printf("You enter fight against "ASCOLOR(COLOR_RED)"%s"ASCOLOR(COLOR_RESET)"\n", enemy->def->name);
+        ToOutput("You enter fight against "ASCOLOR(COLOR_RED)"%s"ASCOLOR(COLOR_RESET)"\n", enemy->def->name);
     }
     else {
-        printf("You are attacked by "ASCOLOR(COLOR_RED)"%s"ASCOLOR(COLOR_RESET)"\n", enemy->def->name);
+        ToOutput("You are attacked by "ASCOLOR(COLOR_RED)"%s"ASCOLOR(COLOR_RESET)"\n", enemy->def->name);
         fightEnemiesRound();
     }
 
     while (enemy) {
         fightPrompt();
         if (!parseFightInput()) {
-            printf("%s\n", HelpPrompt);
+            ToOutput("%s\n", HelpPrompt);
         }
     }
 }
@@ -5886,7 +5897,7 @@ char* sectionPop() {
         for (; ptr < ret; ++ptr) {
             if (*ptr == 0) *ptr = ' ';
         }
-        printf("PANIC!! trying to pop from empty stack: %s\n", sectionBuffer);
+        ToOutput("PANIC!! trying to pop from empty stack: %s\n", sectionBuffer);
         exit(1);
     }
 
@@ -5913,7 +5924,7 @@ void readSaveFileLine() {
         char c = fgetc(SaveState.f);
         if (c == '\n') break;
         if (c == 0) {
-            printf("PANIC!! FOUND EOF in save file; which is never expected");
+            ToOutput("PANIC!! FOUND EOF in save file; which is never expected");
             exit(1);
         }
         sectionBuffer[i] = c;
@@ -5921,7 +5932,7 @@ void readSaveFileLine() {
 
     if (i == SECTIONBUFFERSIZE) {
         sectionBuffer[SECTIONBUFFERSIZE] = 0;
-        printf("PANIC!!; reached end of readSection buffer, aborting: %s buffer\n", sectionBuffer);
+        ToOutput("PANIC!!; reached end of readSection buffer, aborting: %s buffer\n", sectionBuffer);
         exit(1);
     }
 
@@ -5930,19 +5941,19 @@ void readSaveFileLine() {
 
 void loadMap() {
     if (1 != fread(DrawMap, DrawMapSize, 1, SaveState.f)) {
-        printf("PANIC! Unexpected end of file while reading map.. aborting\n");
+        ToOutput("PANIC! Unexpected end of file while reading map.. aborting\n");
         exit(1);
     }
 
     if (fgetc(SaveState.f) != '\n') {
-        printf("PANIC! EXPECTED newline after map.. aborting\n");
+        ToOutput("PANIC! EXPECTED newline after map.. aborting\n");
         exit(1);
     }
 
     readSaveFileLine();
 
     if (strcmp("MAPEND", sectionPop())) {
-        printf("PANIC! EXPECTED MAPEND.. aborting\n");
+        ToOutput("PANIC! EXPECTED MAPEND.. aborting\n");
         exit(1);
     }
 
@@ -5975,7 +5986,7 @@ struct InventoryItemDefinition* loadGlobalItemDef(char* itemSaveName) {
         }
     }
 
-    printf("PANIC!! Unknown item definition, aborting: %s\n", itemSaveName);
+    ToOutput("PANIC!! Unknown item definition, aborting: %s\n", itemSaveName);
     exit(1);
 }
 
@@ -5994,7 +6005,7 @@ struct MonsterDefinition* loadGlobalMonsterDef(char* monsterSaveName) {
         }
     }
 
-    printf("PANIC!! Unknown monster definition, aborting: %s\n", monsterSaveName);
+    ToOutput("PANIC!! Unknown monster definition, aborting: %s\n", monsterSaveName);
     exit(1);
 }
 
@@ -6019,7 +6030,7 @@ void loadNPC() {
     int npcIdentifier = sectionPopInt();
 
     if (npcIdentifier < 0 || npcIdentifier >= GLOBALNPCSLISTSIZE || !globalNPCList[npcIdentifier]) {
-        printf("PANIC!! Unsupported NPC %i, aborting\n", npcIdentifier);
+        ToOutput("PANIC!! Unsupported NPC %i, aborting\n", npcIdentifier);
         exit(1);
     }
 
@@ -6048,7 +6059,7 @@ void loadBox() {
     }
 
     if (box == NULL) {
-        printf("PANIC!! Unsupported Box id %i, aborting\n", boxIdentifier);
+        ToOutput("PANIC!! Unsupported Box id %i, aborting\n", boxIdentifier);
         exit(1);
     }
 
@@ -6064,13 +6075,13 @@ void loadJournalEntry() {
     int idx = sectionPopInt();
     int state = sectionPopInt();
     if (idx < 0 || idx >= GLOBALJOURNALENTRYLISTSIZE) {
-        printf("PANIC! Journal entry out of range %i\n", idx);
+        ToOutput("PANIC! Journal entry out of range %i\n", idx);
         exit(1);
     }
 
     struct JournalEntry* entry = globalJournalEntryList[idx];
     if (!entry) {
-        printf("PANIC! Journal entry not found %i\n", idx);
+        ToOutput("PANIC! Journal entry not found %i\n", idx);
         exit(1);
     }
 
@@ -6265,7 +6276,7 @@ void callOnSection(char* sectionName) {
     struct OnSection* section = loadHandlers;
     for (;;) {
         if (!section->name) {
-            printf("PANIC!! Unsupported section %s, aborting\n", sectionName);
+            ToOutput("PANIC!! Unsupported section %s, aborting\n", sectionName);
             exit(1);
         }
 
@@ -6364,15 +6375,15 @@ int startScreen() {
     FILE* file = openFile("paladin.save", "r");
     if (file != NULL) {
         fclose(file);
-        printf("Would you like to continue previous game?\n");
-        printf("1) Yes - load previous game\n");
-        printf("2) No - start New game\n");
+        ToOutput("Would you like to continue previous game?\n");
+        ToOutput("1) Yes - load previous game\n");
+        ToOutput("2) No - start New game\n");
         for (;;) {
-            printf("?> ");
+            ToOutput("?> ");
             fillInput();
             int num = readInt(input);
             if (num != 1 && num != 2) {
-                printf("Please type 1 or 2...\n");
+                ToOutput("Please type 1 or 2...\n");
                 continue;
             }
 
@@ -6430,7 +6441,7 @@ void initNPCsInventory() {
     appendToList(&NPCTownTavernBartender.inventory, newInventoryItemCount(&ITEMD_HEALING_Wine, 100));
 }
 
-int main(int argc, char** argv) {
+void entrypoint() {
     srand(0);
     initGlobalLocationList();
     initGlobalItemDefList();
@@ -6481,7 +6492,7 @@ int main(int argc, char** argv) {
     for (;;) {
         prompt();
         if (parseInput() == 0) {
-            printf("%s\n", HelpPrompt);
+            ToOutput("%s\n", HelpPrompt);
         }
         if (0 == parseInputRetCode) {
             break;
@@ -6489,5 +6500,162 @@ int main(int argc, char** argv) {
     }
 
     free(input);
+}
+
+#ifdef BUILDONWINDOWS
+#define WIN32_LEAN_AND_MEAN         
+
+#include <windows.h>
+#include <stdarg.h>
+HINSTANCE hInst;
+
+HANDLE winOutput;
+HANDLE winInput;
+
+char* PREF_CC = CC(99);
+#define MIDDLEBUFFERSIZE 1024
+char MIDDLEBUFFER[MIDDLEBUFFERSIZE];
+
+
+char* FromInput() {
+    DWORD readCount;
+    ReadFile(winInput, input, inputSize, &readCount, NULL);
+    if (readCount >= 2 && input[readCount - 2] == '\r') {
+        input[readCount-2] = '\n';
+    }
+    
+    return input;
+}
+
+CONSOLE_SCREEN_BUFFER_INFO screenBufferInfo;
+
+void consoleOffset(int x, int y) {
+    GetConsoleScreenBufferInfo(winOutput, &screenBufferInfo);
+    screenBufferInfo.dwCursorPosition.X += x;
+    screenBufferInfo.dwCursorPosition.Y += y;
+    SetConsoleCursorPosition(winOutput, screenBufferInfo.dwCursorPosition);
+}
+
+int ansiColorToWindows(int ansiColor) {
+    switch (ansiColor) {
+    case C_BBLACK:   return FOREGROUND_INTENSITY | 0;
+    case C_BRED:     return FOREGROUND_INTENSITY | FOREGROUND_RED;
+    case C_BGREEN:   return FOREGROUND_INTENSITY | FOREGROUND_GREEN;
+    case C_BYELLOW:  return FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN;
+    case C_BBLUE:    return FOREGROUND_INTENSITY | FOREGROUND_BLUE;
+    case C_BMAGENTA: return FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_BLUE;
+    case C_BCYAN:    return FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_BLUE;
+    case C_BWHITE:   return FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+
+    case C_BLACK:   return 0;
+    case C_RED:     return FOREGROUND_RED;
+    case C_GREEN:   return FOREGROUND_GREEN;
+    case C_YELLOW:  return FOREGROUND_RED | FOREGROUND_GREEN;
+    case C_BLUE:    return FOREGROUND_BLUE;
+    case C_MAGENTA: return FOREGROUND_RED | FOREGROUND_BLUE;
+    case C_CYAN:    return FOREGROUND_GREEN | FOREGROUND_BLUE;
+    default:
+    case C_RST:
+    case C_WHITE:   return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+    }
+}
+
+void consoleSetColor(int colorCode) {
+    SetConsoleTextAttribute(winOutput, ansiColorToWindows(colorCode));
+}
+
+void ToOutput(char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    int count = vsprintf_s(MIDDLEBUFFER, MIDDLEBUFFERSIZE, format, args);
+    if (count < 0) {
+        exit(100);
+    }
+
+    DWORD written;
+    char* ptr = MIDDLEBUFFER;
+    char* end = MIDDLEBUFFER + MIDDLEBUFFERSIZE;
+
+    char *specialStart = ptr;
+    char *sliceStart = ptr;
+    for (;;) {
+        if (*ptr == 0) {
+            break;
+        }
+
+        if (ptr >= end) {
+            exit(101);
+        }
+
+        if (*ptr == 0x1B) {
+            WriteFile(winOutput, sliceStart, ptr - sliceStart, &written, NULL);
+            specialStart = ptr + 2;
+            for (;;) {
+                ++ptr;
+                if ('m' == *ptr || 'H' == *ptr || 'A' == *ptr || 'B' == *ptr || 'C' == *ptr || 'D' == *ptr) {
+                    int val;
+                    sscanf_s(specialStart, "%i", &val);
+
+                    if (*ptr == 'm') {
+                        consoleSetColor(val);
+                    }
+                    else if (*ptr == 'C') {
+                        consoleOffset(val, 0);
+                    }
+                    else if (*ptr == 'D') {
+                        consoleOffset(-val, 0);
+                    }
+                    else if (*ptr == 'B') {
+                        consoleOffset(0, val);
+                    }
+                    else if (*ptr == 'A') {
+                        consoleOffset(0, -val);
+                    }
+                    
+                    ++ptr;
+                    sliceStart = ptr;
+                    break;
+                }
+            }
+        }
+        else {
+            ++ptr;
+        }
+    }
+
+    if (ptr > sliceStart) {
+        WriteFile(winOutput, sliceStart, ptr - sliceStart, &written, NULL);
+    }
+
+    va_end(args);
+}
+
+int APIENTRY WinMain(_In_ HINSTANCE hInstance,
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPWSTR    lpCmdLine,
+    _In_ int       nCmdShow)
+{
+    UNREFERENCED_PARAMETER(hPrevInstance);
+    UNREFERENCED_PARAMETER(lpCmdLine);
+
+    if (!AllocConsole()) {
+        exit(1);
+    }
+
+    SetConsoleTitle("The Paladin");
+    winInput = GetStdHandle(STD_INPUT_HANDLE);
+    winOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    entrypoint();
     return 0;
 }
+
+
+
+#else
+
+int main(int argc, char** argv) {
+    entrypoint();
+    return 0;
+}
+
+#endif
